@@ -1,4 +1,4 @@
-module go.mercari.io/datastore
+module github.com/juntaki/datastore
 
 go 1.12
 
