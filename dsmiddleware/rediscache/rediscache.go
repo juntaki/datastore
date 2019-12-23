@@ -3,9 +3,9 @@ package rediscache
 import (
 	"bytes"
 	"context"
-	"encoding/gob"
 	"errors"
 	"github.com/go-redis/redis/v7"
+	"github.com/ugorji/go/codec"
 	"go.mercari.io/datastore"
 	"go.mercari.io/datastore/dsmiddleware/storagecache"
 	"time"
@@ -63,6 +63,8 @@ type CacheOption interface {
 	Apply(*cacheHandler)
 }
 
+var mh codec.MsgpackHandle
+
 func (ch *cacheHandler) SetMulti(ctx context.Context, cis []*storagecache.CacheItem) error {
 
 	ch.logf(ctx, "dsmiddleware/rediscache.SetMulti: incoming len=%d", len(cis))
@@ -74,7 +76,8 @@ func (ch *cacheHandler) SetMulti(ctx context.Context, cis []*storagecache.CacheI
 			panic("incomplete key incoming")
 		}
 		var buf bytes.Buffer
-		enc := gob.NewEncoder(&buf)
+
+		enc := codec.NewEncoder(&buf, &mh)
 		err := enc.Encode(ci.PropertyList)
 		if err != nil {
 			ch.logf(ctx, "dsmiddleware/rediscache.SetMulti: gob.Encode error key=%s err=%s", ci.Key.String(), err.Error())
@@ -151,7 +154,7 @@ func (ch *cacheHandler) GetMulti(ctx context.Context, keys []datastore.Key) ([]*
 			continue
 		}
 		buf := bytes.NewBuffer(b)
-		dec := gob.NewDecoder(buf)
+		dec := codec.NewDecoder(buf, &mh)
 		var ps datastore.PropertyList
 		err = dec.Decode(&ps)
 		if err != nil {
